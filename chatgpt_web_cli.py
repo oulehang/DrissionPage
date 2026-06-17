@@ -84,17 +84,29 @@ class ChatGPTWebClient:
 
     def ask(self, prompt, expect_images=False, progress_callback=None, reference_images=None):
         before_count = self._assistant_count()
+        before_answer_texts = set(self._assistant_texts())
         before_image_keys = self._current_image_keys()
         self._seen_image_keys.update(before_image_keys)
-        box = self._wait_prompt_box()
-        self._fill_prompt(box, prompt)
+        attached_count = 0
         if reference_images:
             attached_count = self._attach_files(reference_images)
-            self._wait_attachments_ready(attached_count)
-        self._click_send()
+            self._wait_attachments_ready(attached_count, require_send_ready=False)
+        box = self._wait_prompt_box()
+        self._fill_prompt(box, prompt)
+        sent_already = False
+        if reference_images:
+            try:
+                self._wait_attachments_ready(attached_count, require_send_ready=True)
+            except TimeoutError:
+                sent_already = self._assistant_count() > before_count
+                if not sent_already:
+                    raise
+        if not sent_already:
+            self._click_send()
         answer = self._wait_answer(
             before_count,
             before_image_keys,
+            before_answer_texts=before_answer_texts,
             expect_images=expect_images,
             progress_callback=progress_callback,
         )
@@ -158,7 +170,7 @@ class ChatGPTWebClient:
         input_ele.input(paths)
         return len(paths)
 
-    def _wait_attachments_ready(self, expected_count=0):
+    def _wait_attachments_ready(self, expected_count=0, require_send_ready=True):
         started_at = perf_counter()
         end = perf_counter() + min(90, max(20, self.timeout // 2))
         stable_ready_hits = 0
@@ -170,7 +182,8 @@ class ChatGPTWebClient:
             enough_time_elapsed = perf_counter() - started_at >= 3
             has_expected = not expected_count or attachment_count >= expected_count or enough_time_elapsed
 
-            if send_ready and not upload_busy and has_expected:
+            can_continue = (send_ready or not require_send_ready) and not upload_busy and has_expected
+            if can_continue:
                 stable_ready_hits += 1
                 if stable_ready_hits >= 3:
                     return
@@ -181,7 +194,14 @@ class ChatGPTWebClient:
         raise TimeoutError("Timed out waiting for ChatGPT reference image upload to finish.")
 
     def _composer_state(self):
-        js = """
+        try:
+            return self.page.run_js(self._composer_state_js()) or {}
+        except Exception:
+            return {"send_ready": bool(self._send_button()), "upload_busy": False, "attachment_count": 0}
+
+    @staticmethod
+    def _composer_state_js():
+        return """
         const visible = el => {
           if (!el) return false;
           const style = getComputedStyle(el);
@@ -193,25 +213,22 @@ class ChatGPTWebClient:
         const buttons = [...document.querySelectorAll("button[data-testid='send-button'], button[aria-label='Send prompt'], button[aria-label='Send message'], button[type='submit']")].filter(visible);
         const sendButton = buttons[0] || null;
         const sendReady = !!sendButton && !sendButton.disabled && sendButton.getAttribute("aria-disabled") !== "true";
-        const searchRoots = [root, root?.parentElement, document.body].filter(Boolean);
-        const uploadText = searchRoots.map(el => (el.innerText || "").toLowerCase()).join("\\n");
+        const composerRoots = [root, root?.parentElement].filter(Boolean);
+        const attachmentRoots = composerRoots.length ? composerRoots : [document.body];
+        const uploadText = composerRoots.map(el => (el.innerText || "").toLowerCase()).join("\\n");
         const uploadBusyWords = [
           "uploading", "upload failed", "processing", "preparing",
           "上传中", "正在上传", "上传失败", "处理中", "正在处理", "准备中"
         ];
         const uploadBusy = uploadBusyWords.some(word => uploadText.includes(word));
         const attachmentNodes = new Set();
-        for (const scope of searchRoots.slice(0, 2)) {
+        for (const scope of attachmentRoots) {
           for (const el of scope.querySelectorAll("img, [data-testid*='attachment'], [data-testid*='file'], [aria-label*='附件'], [aria-label*='attachment']")) {
             if (visible(el)) attachmentNodes.add(el);
           }
         }
         return {send_ready: sendReady, upload_busy: uploadBusy, attachment_count: attachmentNodes.size};
         """
-        try:
-            return self.page.run_js(js) or {}
-        except Exception:
-            return {"send_ready": bool(self._send_button()), "upload_busy": False, "attachment_count": 0}
 
     def _file_input(self):
         def candidates():
@@ -274,8 +291,9 @@ class ChatGPTWebClient:
             return button
         return None
 
-    def _wait_answer(self, before_count, before_image_keys=None, expect_images=False, progress_callback=None):
+    def _wait_answer(self, before_count, before_image_keys=None, before_answer_texts=None, expect_images=False, progress_callback=None):
         before_image_keys = before_image_keys or set()
+        before_answer_texts = before_answer_texts or set()
         end = perf_counter() + self.timeout
         last_text = ""
         stable_hits = 0
@@ -287,6 +305,10 @@ class ChatGPTWebClient:
         while perf_counter() < end:
             answers = self._assistant_elements()
             current_answer = self._target_answer(answers, before_count)
+            if not current_answer and answers:
+                latest_text = (answers[-1].text or "").strip()
+                if latest_text and latest_text not in before_answer_texts:
+                    current_answer = answers[-1]
             new_image_keys = self._answer_image_keys(current_answer) - before_image_keys if current_answer else set()
             latest_answer = current_answer
             use_page_images = False
@@ -327,7 +349,7 @@ class ChatGPTWebClient:
                 except Exception:
                     pass
 
-            if len(answers) > before_count:
+            if current_answer:
                 text = current_answer.text.strip() if current_answer else ""
                 has_images = self._answer_has_images(current_answer) if current_answer else False
                 text_stable = text and text == last_text and not new_image_keys
@@ -387,6 +409,9 @@ class ChatGPTWebClient:
 
     def _assistant_count(self):
         return len(self._assistant_elements())
+
+    def _assistant_texts(self):
+        return [(item.text or "").strip() for item in self._assistant_elements()]
 
     def _is_busy(self):
         for selector in BUSY_SELECTORS:

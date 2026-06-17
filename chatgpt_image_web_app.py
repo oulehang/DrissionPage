@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 r"""
 Local web console for preparing WeChat sticker submissions through ChatGPT web automation.
 
@@ -44,20 +44,39 @@ DEFAULT_TEMPLATES = [
     "表情封面图：根据主题「{theme}」生成一张微信表情包封面图。要求：正方形构图，适配240*240像素，PNG，透明背景，主体为最具辨识度的角色/物件/符号正面形象，不要文字，不要水印，不要白色描边。",
     "聊天页图标：根据主题「{theme}」生成一张微信聊天页表情图标。要求：正方形构图，适配50*50像素，PNG，透明背景，仅保留最具辨识度的主体核心特征，画面简洁清晰，不要装饰元素，不要文字，不要水印。",
     "赞赏引导图：根据主题「{theme}」生成一张微信表情赞赏引导图。要求：适配750*560像素，JPG或PNG，展示在选择赞赏金额页面，用于吸引用户赞赏；风格需与表情一致，不出现与表情无关内容，不要水印。",
-    "赞赏致谢图：根据主题「{theme}」生成一张微信表情赞赏致谢图。要求：适配750*750像素，JPG或PNG，用户赞赏后展示在答谢页面；风格需与表情一致，图片内容仅用于表达感谢与支持，不得包含诱导用户分享、转发、邀请他人、领取奖励等引导传播的信息；不出现与表情无关内容，不要水印。",
+    "赞赏致谢图：根据主题「{theme}」生成一张微信表情赞赏致谢图。要求：适配750*750像素，JPG或PNG，用户赞赏后展示在答谢页面；风格需与表情一致，表达感谢和分享氛围，不出现与表情无关内容，不要水印。",
 ]
 
-SPRITE_SHEET_PROMPT = """创建24个微信表情贴纸，主题为「{theme}」。
-主体设定：先从主题中判断题材类型，再严格沿用对应主体；可以是节日祝福卡、花束、宠物、人物关系、动物、物件、职业身份、情绪符号或场景梗。除非主题明确要求人物/亲子/情侣/职业人物，否则不要主动加入人物；主体需像同一套表情包。
-画面要求：
-1. 生成一张完整的6列×4行贴纸网格图，共24个不同表情。
-2. 每格都是独立正方形贴纸，主体居中，占画面70%-90%，留白少。
-3. 每个贴纸动作和情绪都不同，且每格文案必须按顺序对应这24个含义词：{meanings}。
-4. 风格统一，有网感、有梗、好转发，适合中国微信用户在私聊、群聊、工作沟通、亲友问候、节日祝福中高频使用。
-5. 每个贴纸必须包含对应含义词的1-4个中文大字短梗文案，文字要清晰、粗体、适合微信聊天小图阅读。
-6. 不要水印，不要边框，不要编号，不要英文，不要长句。
-7. 网格尽量规整，格子之间留清晰间距，方便后续自动裁剪成24张240*240表情图。
-"""
+SPRITE_SHEET_PROMPT = """请直接生成一张图片，不要回复文字说明。图片内容：微信静态表情包总网格图，6列×4行，共24个独立正方形贴纸。主题：{theme}
+要求：严格保持同一主体，不擅自改成人物；每格动作、表情、姿态、道具或发型明显不同，风格多样化但像同一套表情包。文字：每格包含对应含义词的1-4个中文大字短梗，含义词：{meanings}。画风：微信表情包质感，清爽可裁剪，拒绝AI感，避免塑料感、过度磨皮、模板化、乱码、伪水印和不自然光影。构图：主体居中，格子间距清晰，不要边框、编号、英文和长句。"""
+
+PROMPT_STYLE_PRESETS = {
+    "standard": {
+        "label": "标准有字版",
+        "note": "提示词风格：标准有字版。允许每张表情包含1-4个清晰中文大字短梗文案，文字必须适合微信聊天小图阅读。",
+        "copy_note": "提示词风格：标准有字版。文案和图片都要保留短梗中文大字，适合斗图和日常聊天。",
+    },
+    "no_text": {
+        "label": "无文字版",
+        "note": "提示词风格：无文字版。图片不要任何文字、字母、数字、标语、标题、署名或水印；只用主体表情、动作、情绪和构图表达含义。",
+        "copy_note": "提示词风格：无文字版。图片不放字，含义词只用于指导动作和情绪，不作为画面文字。",
+    },
+    "meme_text": {
+        "label": "强梗文字版",
+        "note": "提示词风格：强梗文字版。每张表情优先使用醒目的1-4个中文大字短梗，文字粗体、高对比、表情夸张，适合斗图和群聊快速识别。",
+        "copy_note": "提示词风格：强梗文字版。文案要短、狠、好转发，中文大字必须醒目。",
+    },
+    "greeting_card": {
+        "label": "祝福贺卡版",
+        "note": "提示词风格：祝福贺卡版。画面可以像微信祝福贺卡、花束、节日元素或手写祝福图，色调温暖明亮，中文祝福文字可清晰醒目。",
+        "copy_note": "提示词风格：祝福贺卡版。文案更适合问候、节日、亲友转发和祝福场景。",
+    },
+    "subject_only": {
+        "label": "纯主体图版",
+        "note": "提示词风格：纯主体图版。画面重点放在同一个主体的动作、表情、姿态和道具变化；背景简洁，尽量少字或不加字，主体辨识度优先。",
+        "copy_note": "提示词风格：纯主体图版。降低文字权重，优先让同一主体靠姿态和情绪表达。",
+    },
+}
 
 COPY_PROMPT = """你是微信表情开放平台的表情专辑策划助手。
 请根据用户需求生成提交表情专辑所需文案和分类建议。
@@ -95,6 +114,68 @@ JSON格式：
 }}
 """
 
+
+def normalize_prompt_style(style):
+    return style if style in PROMPT_STYLE_PRESETS else "standard"
+
+
+def prompt_style_note(style, key="note"):
+    return PROMPT_STYLE_PRESETS[normalize_prompt_style(style)][key]
+
+
+def remove_text_requirements(prompt):
+    text = prompt or ""
+    replacements = [
+        r"必须包含对应含义词的1-4个中文大字短梗文案，文字要清晰、粗体、适合微信聊天小图阅读。",
+        r"必须包含1-4个中文大字短梗文案，文字清晰可读并融入画面，",
+        r"文字：每格包含对应含义词的1-4个中文大字短梗，含义词：\{meanings\}。",
+        r"文字：每格包含对应含义词的1-4个中文大字短梗，含义词：[^。]*。",
+        r"每格文案必须按顺序对应这24个含义词：\{meanings\}。",
+        r"每格文案必须按顺序对应这24个含义词：[^。]*。",
+    ]
+    for pattern in replacements:
+        text = sub(pattern, "", text)
+    return sub(r"\s+", " ", text).strip()
+
+
+def apply_prompt_style_to_prompt(prompt, style):
+    style = normalize_prompt_style(style)
+    base = remove_text_requirements(prompt) if style == "no_text" else (prompt or "").strip()
+    note = prompt_style_note(style)
+    note_head = note.split("。", 1)[0]
+    if note_head in base:
+        return base
+    return f"{base}\n{note}".strip()
+
+
+def build_copy_prompt(theme, prompt_style="standard"):
+    return COPY_PROMPT.format(theme=theme) + "\n\n" + prompt_style_note(prompt_style, "copy_note")
+
+
+def build_hot_theme_prompt(keyword, sticker_meanings=None, today=None, reference_images=None):
+    meanings = sticker_meanings or DEFAULT_MEANINGS
+    today = today or date.today().isoformat()
+    reference_line = (
+        "已上传参考图。参考图只用于借鉴画风、构图、配色、中文文字风格和微信使用场景，不复制具体IP、署名、水印、人物脸或已有表情包名称。"
+        if reference_images
+        else "如已上传参考图，请先分析参考图的题材类型、主体、画风、配色、构图、中文文字风格和微信使用场景；生成文案和图片时只借鉴风格与表达方式，不复制原图具体IP、署名、水印、人物脸或已有表情包名称。"
+    )
+    return f"""你是面向中国微信用户的爆款微信表情包选题策划和图片生成提示词策划。请联网搜索并总结截至 {today} 最新的热门表情包/贴纸风格趋势，然后基于用户输入生成一条简短、高质量、可直接再次发起图片生成的“总需求”。
+
+用户当前关键词：{keyword}
+{reference_line}
+
+要求：
+1. 第一步先判断用户输入的题材类型：节日祝福/贺卡海报、宠物问候、人物关系、动物萌宠、花束礼物、物件拟人、职业身份、纯文字祝福、情绪斗图、生活场景梗等。
+2. 必须围绕用户输入方向生成图片提示词，不要套用固定人物模板。除非用户明确输入人物、亲子、情侣、职业人物或某类人群，否则不要主动加入人物。
+3. 必须保留用户关键词里的核心主体和限定词；例如“小狗的各类发型”必须保留小狗和各类发型，主题不能变成泛泛的宠物问候。
+4. theme 控制在55到90个中文字符，只写图片生成重点：题材类型 + 主体元素 + 场景/用途 + 画风 + 中文短梗信号。
+5. meanings 必须是24个小表情含义词，每个4个汉字以内，要按题材生成；如果是“小狗的各类发型”等变化主题，meanings 应优先写成具体发型/造型标签，例如卷毛、中分、寸头、背头、刺猬头、丸子头，不要只写通用情绪。
+5. 参考热门方向，但不要抄袭现有IP、明星、品牌、影视角色、网络红人脸、具体表情包形象或平台已有爆款名称。
+6. 返回单行 JSON，不要 Markdown，不要解释。
+
+JSON格式：{{"theme":"90字以内中文图片生成总需求","meanings":{dumps(meanings, ensure_ascii=False)},"references":["热门风格关键词1","热门风格关键词2","热门风格关键词3"]}}"""
+
 INDEX_HTML = r"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -119,8 +200,9 @@ INDEX_HTML = r"""<!doctype html>
       --soft-yellow: #fff6d7;
     }
     * { box-sizing: border-box; }
+    html, body { max-width: 100%; overflow-x: hidden; }
     body { margin: 0; background: #eef2f6; color: #1f2328; }
-    main { max-width: 1320px; margin: 0 auto; padding: 28px 24px 40px; }
+    main { width: min(100%, 1560px); margin: 0 auto; padding: 28px 20px 40px; }
     h1 {
       display: flex;
       align-items: center;
@@ -175,7 +257,8 @@ INDEX_HTML = r"""<!doctype html>
       color: white;
       font-weight: 700;
       cursor: pointer;
-      white-space: nowrap;
+      white-space: normal;
+      overflow-wrap: anywhere;
       transition: background .15s ease, transform .05s ease;
     }
     button:hover { background: var(--primary-dark); }
@@ -187,27 +270,52 @@ INDEX_HTML = r"""<!doctype html>
     button:disabled { background: #98a2b3; cursor: not-allowed; transform: none; }
     a { color: var(--primary); text-decoration: none; font-weight: 700; }
     a:hover { text-decoration: underline; }
-    .task-grid { display: grid; grid-template-columns: minmax(360px, 1fr) 170px 160px 210px 130px; gap: 12px; align-items: end; }
-    .task-grid > button { height: 42px; }
+    .app-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(360px, 34vw, 560px); gap: 16px; align-items: start; }
+    .main-column, .side-column { min-width: 0; }
+    .side-column { display: grid; gap: 16px; position: sticky; top: 16px; }
+    .side-column section { margin-bottom: 0; overflow: hidden; }
+    .side-column .status { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .side-column .log { height: 260px; }
+    .side-column .gallery { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); max-height: 520px; overflow-y: auto; overflow-x: hidden; }
+    .side-column .section-head { align-items: flex-start; flex-direction: column; }
+    .side-column .actions { width: 100%; }
+    .side-column .actions a { max-width: 100%; overflow-wrap: anywhere; }
+    .task-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 220px); gap: 12px; align-items: end; }
+    .task-grid > div { min-width: 0; }
+    .control-stack { display: grid; gap: 10px; align-self: stretch; }
+    .task-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .task-actions button { width: 100%; min-height: 42px; }
     .theme-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
     .theme-tools button { padding: 7px 11px; min-height: 32px; font-size: 12px; }
     .metadata { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
     .metadata .wide { grid-column: 1 / -1; }
     .prompt-grid { display: grid; grid-template-columns: minmax(360px, 1.15fr) minmax(320px, .85fr); gap: 14px; align-items: start; }
-    .reference-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; min-height: 8px; }
-    .reference-list span {
-      display: inline-flex;
-      align-items: center;
-      max-width: 260px;
+    .reference-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 9px; min-height: 8px; }
+    .reference-thumb {
+      display: grid;
+      gap: 5px;
       border: 1px solid #c9d7ea;
       border-radius: 7px;
-      padding: 5px 9px;
+      padding: 5px;
       background: #eef6ff;
       color: #315679;
-      font-size: 12px;
+      font-size: 11px;
+      line-height: 1.2;
+    }
+    .reference-thumb img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display: block;
+      object-fit: cover;
+      border-radius: 5px;
+      background: #dbeafe;
+    }
+    .reference-thumb b {
+      display: block;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      font-weight: 600;
     }
     .history-list { display: grid; gap: 8px; }
     .history-item {
@@ -245,8 +353,11 @@ INDEX_HTML = r"""<!doctype html>
     .metric span { font-size: 18px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
     .log {
       height: 180px;
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
       background: #111827;
       color: #dbeafe;
       border-radius: 8px;
@@ -275,6 +386,7 @@ INDEX_HTML = r"""<!doctype html>
     .badge.warn { background: var(--soft-yellow); color: #836100; }
     .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 14px; }
     .card {
+      min-width: 0;
       border: 1px solid var(--line);
       border-radius: 8px;
       overflow: hidden;
@@ -294,15 +406,17 @@ INDEX_HTML = r"""<!doctype html>
     .card a { display: inline-flex; margin-top: 8px; }
     .hint { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 9px 0 0; }
     @media (max-width: 1160px) {
-      .task-grid { grid-template-columns: 1fr 170px 1fr; }
-      .task-grid > button { width: 100%; }
+      .app-layout { grid-template-columns: 1fr; }
+      .side-column { position: static; }
+      .task-grid { grid-template-columns: minmax(0, 1fr) minmax(180px, 220px); }
       .prompt-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 900px) {
       main { padding: 18px 14px 30px; }
       h1 { font-size: 21px; }
       section { padding: 14px; }
-      .task-grid, .status, .metadata, .prompt-grid { grid-template-columns: 1fr; }
+      main { padding-left: 12px; padding-right: 12px; }
+      .task-grid, .status, .metadata, .prompt-grid, .side-column .status, .task-actions { grid-template-columns: 1fr; }
       .section-head { align-items: flex-start; flex-direction: column; }
       .actions { width: 100%; }
       .actions button, .actions a, .theme-tools button { width: 100%; justify-content: center; text-align: center; }
@@ -316,6 +430,8 @@ INDEX_HTML = r"""<!doctype html>
 <main>
   <h1>微信表情提交准备工具</h1>
 
+  <div class="app-layout">
+  <div class="main-column">
   <section>
     <h2>任务</h2>
     <div class="task-grid">
@@ -326,16 +442,30 @@ INDEX_HTML = r"""<!doctype html>
           <button class="secondary" id="hotThemeBtn" type="button">联网参考热门</button>
         </div>
       </div>
-      <div>
-        <label for="mode">生成模式</label>
-        <select id="mode">
-          <option value="sprite24" selected>24宫格一次生成</option>
-          <option value="sequential">逐张生成</option>
-        </select>
+      <div class="control-stack">
+        <div>
+          <label for="mode">生成模式</label>
+          <select id="mode">
+            <option value="sprite24" selected>24宫格一次生成</option>
+            <option value="sequential">逐张生成</option>
+          </select>
+        </div>
+        <div>
+          <label for="promptStyle">提示词风格</label>
+          <select id="promptStyle">
+            <option value="standard" selected>标准有字版</option>
+            <option value="no_text">无文字版</option>
+            <option value="meme_text">强梗文字版</option>
+            <option value="greeting_card">祝福贺卡版</option>
+            <option value="subject_only">纯主体图版</option>
+          </select>
+        </div>
       </div>
-      <button id="startBtn">生成文案和图片</button>
-      <button class="success" id="syncBtn">同步到微信表情开放平台</button>
-      <button class="secondary" id="reconnectBtn" type="button">手动重连</button>
+      <div class="task-actions">
+        <button id="startBtn">生成文案和图片</button>
+        <button class="success" id="syncBtn">同步到微信表情开放平台</button>
+        <button class="secondary" id="reconnectBtn" type="button">手动重连</button>
+      </div>
     </div>
     <p class="hint">同步会打开微信表情开放平台页面并尽量自动填写表单；请登录后人工复核，确认无误再提交。</p>
     <div style="margin-top:12px;">
@@ -388,12 +518,22 @@ INDEX_HTML = r"""<!doctype html>
         </div>
         <div>
           <label>赞赏致谢图</label>
-          <textarea class="template">赞赏致谢图：根据主题「{theme}」生成一张微信表情赞赏致谢图。要求：适配750*750像素，用户赞赏后展示在答谢页面；风格需与表情一致，图片内容仅用于表达感谢与支持，不得包含诱导用户分享、转发、邀请他人、领取奖励等引导传播的信息；不出现与表情无关内容，不要水印。</textarea>
+          <textarea class="template">赞赏致谢图：根据主题「{theme}」生成一张微信表情赞赏致谢图。要求：适配750*750像素，用户赞赏后展示在答谢页面；风格需与表情一致，表达感谢和分享氛围，不出现与表情无关内容，不要水印。</textarea>
         </div>
       </div>
     </div>
   </section>
 
+  <section class="history-section">
+    <div class="section-head">
+      <h2>历史记录</h2>
+      <button class="secondary" id="refreshHistoryBtn" type="button">刷新历史</button>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </section>
+
+  </div>
+  <aside class="side-column">
   <section>
     <h2>状态</h2>
     <div class="status">
@@ -407,14 +547,6 @@ INDEX_HTML = r"""<!doctype html>
       <button class="secondary" id="clearBtn" type="button">清空当前</button>
       <button class="secondary" id="saveClearBtn" type="button">清空并保存</button>
     </div>
-  </section>
-
-  <section>
-    <div class="section-head">
-      <h2>历史记录</h2>
-      <button class="secondary" id="refreshHistoryBtn" type="button">刷新历史</button>
-    </div>
-    <div class="history-list" id="historyList"></div>
   </section>
 
   <section>
@@ -439,6 +571,9 @@ INDEX_HTML = r"""<!doctype html>
     </div>
     <div class="gallery" id="gallery"></div>
   </section>
+  </aside>
+  </div>
+
 </main>
 
 <script>
@@ -448,14 +583,61 @@ let lastGalleryKey = "";
 let lastHotThemeKey = "";
 let metaDirty = false;
 let referenceFiles = [];
+let referenceObjectUrls = [];
 let lastHistoryKey = "";
 const metaIds = ["metaName", "metaIntro", "metaCopyright", "metaCharacter", "metaStyles", "metaThemes", "metaOther", "metaMeanings", "rewardGuideText"];
+const baseStickerPrompt = $("stickerPrompt").value;
+const promptStyleImageNotes = {
+  standard: "提示词风格：标准有字版。允许每张表情包含1-4个清晰中文大字短梗文案，文字必须适合微信聊天小图阅读。",
+  no_text: "提示词风格：无文字版。图片不要任何文字、字母、数字、标语、标题、署名或水印；只用主体表情、动作、情绪和构图表达含义。",
+  meme_text: "提示词风格：强梗文字版。每张表情优先使用醒目的1-4个中文大字短梗，文字粗体、高对比、表情夸张，适合斗图和群聊快速识别。",
+  greeting_card: "提示词风格：祝福贺卡版。画面可以像微信祝福贺卡、花束、节日元素或手写祝福图，色调温暖明亮，中文祝福文字可清晰醒目。",
+  subject_only: "提示词风格：纯主体图版。画面重点放在同一个主体的动作、表情、姿态和道具变化；背景简洁，尽量少字或不加字，主体辨识度优先。"
+};
 metaIds.forEach(id => $(id).addEventListener("input", () => { metaDirty = true; }));
 $("rewardEnabled").addEventListener("change", () => { metaDirty = true; });
 
+function removeStickerTextRequirements(prompt) {
+  return (prompt || "")
+    .replace(/文字：每格包含对应含义词的1-4个中文大字短梗，含义词：\{meanings\}。/g, "")
+    .replace(/文字：每格包含对应含义词的1-4个中文大字短梗，含义词：[^。]*。/g, "")
+    .replace(/必须包含1-4个中文大字短梗文案，文字清晰可读并融入画面。/g, "")
+    .replace(/每格文案必须按顺序对应这24个含义词：\{meanings\}。/g, "")
+    .replace(/每格文案必须按顺序对应这24个含义词：[^。]*。/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stickerPromptForStyle(style) {
+  const base = style === "no_text" ? removeStickerTextRequirements(baseStickerPrompt) : baseStickerPrompt.trim();
+  const note = promptStyleImageNotes[style] || promptStyleImageNotes.standard;
+  return `${base}\n${note}`;
+}
+
+$("promptStyle").addEventListener("change", () => {
+  $("stickerPrompt").value = stickerPromptForStyle($("promptStyle").value);
+});
+
+function escapeHtml(text) {
+  return String(text || "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[char]));
+}
+
 $("referenceImages").addEventListener("change", () => {
   referenceFiles = [...$("referenceImages").files];
-  $("referenceList").innerHTML = referenceFiles.map(file => `<span>${file.name}</span>`).join("");
+  referenceObjectUrls.forEach(url => URL.revokeObjectURL(url));
+  referenceObjectUrls = [];
+  $("referenceList").innerHTML = referenceFiles.map(file => {
+    const url = URL.createObjectURL(file);
+    referenceObjectUrls.push(url);
+    const safeName = escapeHtml(file.name);
+    return `<span class="reference-thumb"><img src="${url}" alt="${safeName}"><b>${safeName}</b></span>`;
+  }).join("");
 });
 
 function readFileAsDataUrl(file) {
@@ -601,6 +783,7 @@ $("hotThemeBtn").onclick = async () => {
 $("startBtn").onclick = async () => {
   const theme = $("theme").value.trim();
   const mode = $("mode").value;
+  const promptStyle = $("promptStyle").value;
   const stickerPrompt = $("stickerPrompt").value.trim();
   const stickerMeanings = $("metaMeanings").value.split(/\n/).map(x => x.trim()).filter(Boolean);
   const templates = [...document.querySelectorAll(".template")].map(x => x.value.trim()).filter(Boolean);
@@ -613,7 +796,7 @@ $("startBtn").onclick = async () => {
     const res = await fetch("/api/start", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({theme, templates, mode, stickerPrompt, stickerMeanings, referenceImages})
+      body: JSON.stringify({theme, templates, mode, promptStyle, stickerPrompt, stickerMeanings, referenceImages})
     });
     const data = await res.json();
     if (!res.ok || data.ok === false) {
@@ -750,6 +933,7 @@ async function poll() {
   $("syncBtn").disabled = busy;
   $("reconnectBtn").disabled = busy;
   $("hotThemeBtn").disabled = busy;
+  $("promptStyle").disabled = busy;
   $("saveHistoryBtn").disabled = busy;
   $("clearBtn").disabled = busy;
   $("saveClearBtn").disabled = busy;
@@ -947,30 +1131,7 @@ def build_theme_prompt(keyword="小狗早安问候", references=None):
 
 def chatgpt_hot_theme(keyword="热门微信表情包", reference_images=None):
     reference_images = [str(Path(path).resolve()) for path in (reference_images or []) if Path(path).exists()]
-    reference_note = reference_style_note(reference_images)
-    prompt = f"""你是面向中国微信用户的爆款微信表情包选题策划和图片生成提示词策划。请联网搜索并总结截至 {date.today().isoformat()} 最新的热门表情包/贴纸风格趋势，然后基于用户输入生成一条简短、高质量、可直接再次发起图片生成的“总需求”。
-
-用户当前关键词：{keyword}{reference_note}
-
-要求：
-1. 第一步先判断用户输入的题材类型：节日祝福/贺卡海报、宠物问候、人物关系、动物萌宠、花束礼物、物件拟人、职业身份、纯文字祝福、情绪斗图、生活场景梗等。
-2. 必须围绕用户输入方向生成图片提示词，不要套用固定人物模板。除非用户明确输入人物、亲子、情侣、职业人物或某类人群，否则不要主动加入人物。
-3. 如果用户输入“母亲节祝福”“生日快乐”“早上好”“健康平安”等，应优先生成微信祝福图片/贺卡/花束/节日元素/手写大字方向；如果输入“小狗”“猫咪”等宠物，应生成宠物表情包方向。
-4. 如果用户输入很短或很泛，要自动补全为一个有记忆点的原创题材、主体、使用场景、视觉风格和文案语气，但主体类型必须继承用户输入。
-5. 优先贴合中国微信用户真实使用习惯：亲友问候、节日祝福、群发转发、私聊接话、群聊刷屏、工作敷衍、催促回复、阴阳怪气、卖萌认怂、拒绝背锅、情绪发疯等高频场景。
-6. 参考热门方向，但不要抄袭现有IP、明星、品牌、影视角色、网络红人脸、具体表情包形象或平台已有爆款名称。
-7. 爆款感要来自“题材准确 + 微信转发感 + 短梗大字 + 低理解成本 + 可重复使用 + 情绪回应感”，避免小众冷梗、长句、过度文艺、营销腔。
-8. theme 控制在55到90个中文字符，只写图片生成重点：题材类型 + 主体元素 + 场景/用途 + 画风 + 中文文案语气。不要只写选题标题。
-9. theme 不要写平台规则、尺寸、生成步骤、含义词列表、版权提醒。
-10. meanings 必须是24个小表情含义词，每个4个汉字以内，要按题材生成。宠物问候可包含早安、午安、晚安、想你、加油；节日祝福可包含快乐、平安、健康、感恩、好运；斗图可包含收到、笑死、已读、别催、无语、救命等。
-11. 只返回一个单行 JSON 对象，不要 Markdown，不要代码块，不要解释，不要列表，不要前后缀文字。
-
-参考风格理解：
-- 类似“母亲节祝福”应输出红粉色节日贺卡、鲜花、爱心、柔和3D/插画、醒目中文祝福字的微信祝福图片方向，可有人物母女，也可纯花束贺卡，取决于用户输入。
-- 类似“小狗球球”应输出白色小狗手绘萌宠、粉色点缀、黑色手写中文短句、多格日常问候的微信表情方向。
-
-JSON格式：{{"theme":"90字以内中文图片生成总需求","meanings":["收到","开心"],"references":["热门风格关键词1","热门风格关键词2","热门风格关键词3"]}}
-"""
+    prompt = build_hot_theme_prompt(keyword, reference_images=reference_images)
     bot = ensure_bot()
     bot.page.get(CHATGPT_URL)
     if reference_images:
@@ -1312,19 +1473,21 @@ def reference_style_note(reference_images):
     )
 
 
-def run_batch(theme, templates, mode="sprite24", sticker_prompt="", supplied_meanings=None, reference_images=None):
+def run_batch(theme, templates, mode="sprite24", sticker_prompt="", supplied_meanings=None, reference_images=None, prompt_style="standard"):
     clean_theme, theme_meanings = split_theme_and_meanings(theme)
     reference_images = [str(Path(path).resolve()) for path in (reference_images or []) if Path(path).exists()]
     theme_for_prompt = clean_theme + reference_style_note(reference_images)
+    theme_for_image = clean_theme
+    prompt_style = normalize_prompt_style(prompt_style)
     supplied_meanings = [clamp_text(item, 4) for item in (supplied_meanings or []) if clamp_text(item, 4)]
     if mode == "sprite24":
         asset_templates = templates[:5] if len(templates or []) >= 5 else DEFAULT_TEMPLATES[-5:]
-        sprite_template = sticker_prompt or SPRITE_SHEET_PROMPT
+        sprite_template = apply_prompt_style_to_prompt(sticker_prompt or SPRITE_SHEET_PROMPT, prompt_style)
         active_templates = [sprite_template, *asset_templates]
-        prompts = [sprite_template.replace("{theme}", theme_for_prompt), *[template.replace("{theme}", theme_for_prompt) for template in asset_templates]]
+        prompts = [sprite_template.replace("{theme}", theme_for_image), *[template.replace("{theme}", theme_for_image) for template in asset_templates]]
     else:
         active_templates = templates if len(templates or []) >= 8 else DEFAULT_TEMPLATES
-        prompts = build_prompts(theme_for_prompt, active_templates)
+        prompts = [apply_prompt_style_to_prompt(prompt, prompt_style) for prompt in build_prompts(theme_for_image, active_templates)]
     with STATE.lock:
         STATE.state = "running"
         STATE.done = 0
@@ -1344,7 +1507,7 @@ def run_batch(theme, templates, mode="sprite24", sticker_prompt="", supplied_mea
             STATE.append_log(f"已加载参考图 {len(reference_images)} 张，将用于分析画风、主体和文案风格。")
         sleep(2)
 
-        copy_answer = bot.ask(COPY_PROMPT.format(theme=theme_for_prompt), reference_images=reference_images)
+        copy_answer = bot.ask(build_copy_prompt(theme_for_prompt, prompt_style), reference_images=reference_images)
         metadata_source = extract_json(copy_answer)
         if supplied_meanings or theme_meanings:
             metadata_source["sticker_meanings"] = supplied_meanings or theme_meanings
@@ -1375,7 +1538,7 @@ def run_batch(theme, templates, mode="sprite24", sticker_prompt="", supplied_mea
             def image_progress(message, step=index, total=len(prompts), current_label=label):
                 STATE.append_log(f"[{step}/{total}] 等待图片完成（{current_label}）：{message}")
 
-            answer = bot.ask(prompt, expect_images=True, progress_callback=image_progress, reference_images=reference_images)
+            answer = bot.ask(prompt, expect_images=True, progress_callback=image_progress)
             new_paths = list(bot.last_saved_images)
 
             if mode == "sprite24" and index == 1:
@@ -1791,6 +1954,7 @@ class Handler(BaseHTTPRequestHandler):
         clean_theme, _ = split_theme_and_meanings(theme)
         templates = [x.strip() for x in data.get("templates", []) if x.strip()]
         mode = data.get("mode", "sprite24")
+        prompt_style = normalize_prompt_style(data.get("promptStyle", "standard"))
         sticker_prompt = data.get("stickerPrompt", "").strip()
         sticker_meanings = [x.strip() for x in data.get("stickerMeanings", []) if x.strip()]
         reference_images = [x for x in data.get("referenceImages", []) if x and Path(x).exists()]
@@ -1803,7 +1967,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             STATE.state = "running"
             STATE.current = "启动生成任务"
-            STATE.worker = Thread(target=run_batch, args=(theme, templates, mode, sticker_prompt, sticker_meanings, reference_images), daemon=True)
+            STATE.worker = Thread(target=run_batch, args=(theme, templates, mode, sticker_prompt, sticker_meanings, reference_images, prompt_style), daemon=True)
             STATE.worker.start()
         self.send_json({"ok": True})
 
