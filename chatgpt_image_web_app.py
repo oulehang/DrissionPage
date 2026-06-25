@@ -152,14 +152,36 @@ def build_copy_prompt(theme, prompt_style="standard"):
     return COPY_PROMPT.format(theme=theme) + "\n\n" + prompt_style_note(prompt_style, "copy_note")
 
 
-def build_hot_theme_prompt(keyword, sticker_meanings=None, today=None, reference_images=None):
+REFERENCE_MODE_NOTES = {
+    "borrow": (
+        "已上传参考图。请先分析参考图的题材类型、主体、画风、配色、构图、中文文字风格和微信使用场景；"
+        "参考图只用于借鉴画风、表达方式和微信使用场景；生成文案和图片时只借鉴风格与表达方式，"
+        "不复制原图具体IP、署名、水印、人物脸或已有表情包名称。"
+    ),
+    "replicate": (
+        "已上传参考图。请先分析参考图的题材类型、主体、人物/角色设定、画风、配色、构图、中文文字风格和微信使用场景；"
+        "生成文案和图片时尽量复刻参考图的整体风格、主体/人物特征、表情表达、配色和构图方式，但不要复制署名、水印、二维码、平台标识或已有表情包名称。"
+    ),
+}
+
+
+def normalize_reference_mode(mode):
+    return mode if mode in REFERENCE_MODE_NOTES else "borrow"
+
+
+def reference_mode_note(reference_images, reference_mode="borrow"):
+    if not reference_images:
+        return (
+            "如已上传参考图，请先分析参考图的题材类型、主体、画风、配色、构图、中文文字风格和微信使用场景；"
+            "生成文案和图片时只借鉴风格与表达方式，不复制原图具体IP、署名、水印、人物脸或已有表情包名称。"
+        )
+    return REFERENCE_MODE_NOTES[normalize_reference_mode(reference_mode)]
+
+
+def build_hot_theme_prompt(keyword, sticker_meanings=None, today=None, reference_images=None, reference_mode="borrow"):
     meanings = sticker_meanings or DEFAULT_MEANINGS
     today = today or date.today().isoformat()
-    reference_line = (
-        "已上传参考图。参考图只用于借鉴画风、构图、配色、中文文字风格和微信使用场景，不复制具体IP、署名、水印、人物脸或已有表情包名称。"
-        if reference_images
-        else "如已上传参考图，请先分析参考图的题材类型、主体、画风、配色、构图、中文文字风格和微信使用场景；生成文案和图片时只借鉴风格与表达方式，不复制原图具体IP、署名、水印、人物脸或已有表情包名称。"
-    )
+    reference_line = reference_mode_note(reference_images, reference_mode)
     return f"""你是面向中国微信用户的爆款微信表情包选题策划和图片生成提示词策划。请联网搜索并总结截至 {today} 最新的热门表情包/贴纸风格趋势，然后基于用户输入生成一条简短、高质量、可直接再次发起图片生成的“总需求”。
 
 用户当前关键词：{keyword}
@@ -247,7 +269,7 @@ INDEX_HTML = r"""<!doctype html>
       box-shadow: 0 0 0 3px rgba(18, 100, 216, 0.12);
     }
     textarea { min-height: 92px; resize: vertical; line-height: 1.55; }
-    input[type="file"] { padding: 9px; background: #fff; }
+    input[type="file"] { min-height: 41px; padding: 6px 9px; background: #fff; }
     button {
       border: 0;
       border-radius: 7px;
@@ -290,6 +312,8 @@ INDEX_HTML = r"""<!doctype html>
     .metadata { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
     .metadata .wide { grid-column: 1 / -1; }
     .prompt-grid { display: grid; grid-template-columns: minmax(360px, 1.15fr) minmax(320px, .85fr); gap: 14px; align-items: start; }
+    .reference-controls { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; align-items: end; margin-top: 12px; }
+    .reference-controls label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .reference-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 9px; min-height: 8px; }
     .reference-thumb {
       display: grid;
@@ -416,7 +440,7 @@ INDEX_HTML = r"""<!doctype html>
       h1 { font-size: 21px; }
       section { padding: 14px; }
       main { padding-left: 12px; padding-right: 12px; }
-      .task-grid, .status, .metadata, .prompt-grid, .side-column .status, .task-actions { grid-template-columns: 1fr; }
+      .task-grid, .status, .metadata, .prompt-grid, .side-column .status, .task-actions, .reference-controls { grid-template-columns: 1fr; }
       .section-head { align-items: flex-start; flex-direction: column; }
       .actions { width: 100%; }
       .actions button, .actions a, .theme-tools button { width: 100%; justify-content: center; text-align: center; }
@@ -468,11 +492,20 @@ INDEX_HTML = r"""<!doctype html>
       </div>
     </div>
     <p class="hint">同步会打开微信表情开放平台页面并尽量自动填写表单；请登录后人工复核，确认无误再提交。</p>
-    <div style="margin-top:12px;">
-      <label for="referenceImages">参考图（可选，用于提取画风、主体、构图和文字风格）</label>
-      <input id="referenceImages" type="file" accept="image/png,image/jpeg,image/jpg,image/webp" multiple>
-      <div class="reference-list" id="referenceList"></div>
+    <div class="reference-controls">
+      <div>
+        <label for="referenceImages">参考图（可选，用于提取画风、主体、构图和文字风格）</label>
+        <input id="referenceImages" type="file" accept="image/png,image/jpeg,image/jpg,image/webp" multiple>
+      </div>
+      <div>
+        <label for="referenceMode">参考图使用方式</label>
+        <select id="referenceMode">
+          <option value="borrow" selected>只借鉴风格，不复制人物/IP</option>
+          <option value="replicate">复刻参考风格、主体/人物</option>
+        </select>
+      </div>
     </div>
+    <div class="reference-list" id="referenceList"></div>
   </section>
 
   <section>
@@ -757,11 +790,12 @@ $("hotThemeBtn").onclick = async () => {
   try {
     const current = $("theme").value.trim();
     const stickerMeanings = $("metaMeanings").value.split(/\n/).map(x => x.trim()).filter(Boolean);
+    const referenceMode = $("referenceMode").value;
     const referenceImages = await uploadReferences();
     const res = await fetch("/api/search_theme", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({keyword: current || "热门微信表情包", stickerMeanings, referenceImages})
+      body: JSON.stringify({keyword: current || "热门微信表情包", stickerMeanings, referenceImages, referenceMode})
     });
     const data = await res.json();
     if (!res.ok || data.ok === false) {
@@ -784,6 +818,7 @@ $("startBtn").onclick = async () => {
   const theme = $("theme").value.trim();
   const mode = $("mode").value;
   const promptStyle = $("promptStyle").value;
+  const referenceMode = $("referenceMode").value;
   const stickerPrompt = $("stickerPrompt").value.trim();
   const stickerMeanings = $("metaMeanings").value.split(/\n/).map(x => x.trim()).filter(Boolean);
   const templates = [...document.querySelectorAll(".template")].map(x => x.value.trim()).filter(Boolean);
@@ -796,7 +831,7 @@ $("startBtn").onclick = async () => {
     const res = await fetch("/api/start", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({theme, templates, mode, promptStyle, stickerPrompt, stickerMeanings, referenceImages})
+      body: JSON.stringify({theme, templates, mode, promptStyle, referenceMode, stickerPrompt, stickerMeanings, referenceImages})
     });
     const data = await res.json();
     if (!res.ok || data.ok === false) {
@@ -934,6 +969,7 @@ async function poll() {
   $("reconnectBtn").disabled = busy;
   $("hotThemeBtn").disabled = busy;
   $("promptStyle").disabled = busy;
+  $("referenceMode").disabled = busy;
   $("saveHistoryBtn").disabled = busy;
   $("clearBtn").disabled = busy;
   $("saveClearBtn").disabled = busy;
@@ -1129,9 +1165,10 @@ def build_theme_prompt(keyword="小狗早安问候", references=None):
     )
 
 
-def chatgpt_hot_theme(keyword="热门微信表情包", reference_images=None):
+def chatgpt_hot_theme(keyword="热门微信表情包", reference_images=None, reference_mode="borrow"):
     reference_images = [str(Path(path).resolve()) for path in (reference_images or []) if Path(path).exists()]
-    prompt = build_hot_theme_prompt(keyword, reference_images=reference_images)
+    reference_mode = normalize_reference_mode(reference_mode)
+    prompt = build_hot_theme_prompt(keyword, reference_images=reference_images, reference_mode=reference_mode)
     bot = ensure_bot()
     bot.page.get(CHATGPT_URL)
     if reference_images:
@@ -1169,13 +1206,13 @@ def chatgpt_hot_theme(keyword="热门微信表情包", reference_images=None):
     }
 
 
-def run_search_theme(keyword, supplied_meanings=None, reference_images=None):
+def run_search_theme(keyword, supplied_meanings=None, reference_images=None, reference_mode="borrow"):
     try:
         with STATE.lock:
             STATE.state = "searching"
             STATE.current = "联网参考热门"
             STATE.hot_theme = None
-        result = chatgpt_hot_theme(keyword, reference_images=reference_images)
+        result = chatgpt_hot_theme(keyword, reference_images=reference_images, reference_mode=reference_mode)
         if supplied_meanings and not result.get("meanings"):
             result["meanings"] = supplied_meanings
         with STATE.lock:
@@ -1464,19 +1501,17 @@ def label_from_template(template, index):
     return f"第 {index} 张"
 
 
-def reference_style_note(reference_images):
+def reference_style_note(reference_images, reference_mode="borrow"):
     if not reference_images:
         return ""
-    return (
-        "\n已上传参考图。请先分析参考图的题材类型、主体、画风、配色、构图、中文文字风格和微信使用场景；"
-        "生成文案和图片时只借鉴风格与表达方式，不复制原图具体IP、署名、水印、人物脸或已有表情包名称。"
-    )
+    return "\n" + reference_mode_note(reference_images, reference_mode)
 
 
-def run_batch(theme, templates, mode="sprite24", sticker_prompt="", supplied_meanings=None, reference_images=None, prompt_style="standard"):
+def run_batch(theme, templates, mode="sprite24", sticker_prompt="", supplied_meanings=None, reference_images=None, prompt_style="standard", reference_mode="borrow"):
     clean_theme, theme_meanings = split_theme_and_meanings(theme)
     reference_images = [str(Path(path).resolve()) for path in (reference_images or []) if Path(path).exists()]
-    theme_for_prompt = clean_theme + reference_style_note(reference_images)
+    reference_mode = normalize_reference_mode(reference_mode)
+    theme_for_prompt = clean_theme + reference_style_note(reference_images, reference_mode)
     theme_for_image = clean_theme
     prompt_style = normalize_prompt_style(prompt_style)
     supplied_meanings = [clamp_text(item, 4) for item in (supplied_meanings or []) if clamp_text(item, 4)]
@@ -1955,6 +1990,7 @@ class Handler(BaseHTTPRequestHandler):
         templates = [x.strip() for x in data.get("templates", []) if x.strip()]
         mode = data.get("mode", "sprite24")
         prompt_style = normalize_prompt_style(data.get("promptStyle", "standard"))
+        reference_mode = normalize_reference_mode(data.get("referenceMode", "borrow"))
         sticker_prompt = data.get("stickerPrompt", "").strip()
         sticker_meanings = [x.strip() for x in data.get("stickerMeanings", []) if x.strip()]
         reference_images = [x for x in data.get("referenceImages", []) if x and Path(x).exists()]
@@ -1967,7 +2003,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             STATE.state = "running"
             STATE.current = "启动生成任务"
-            STATE.worker = Thread(target=run_batch, args=(theme, templates, mode, sticker_prompt, sticker_meanings, reference_images, prompt_style), daemon=True)
+            STATE.worker = Thread(target=run_batch, args=(theme, templates, mode, sticker_prompt, sticker_meanings, reference_images, prompt_style, reference_mode), daemon=True)
             STATE.worker.start()
         self.send_json({"ok": True})
 
@@ -2048,6 +2084,7 @@ class Handler(BaseHTTPRequestHandler):
         keyword = (data.get("keyword") or "热门微信表情包").strip()[:80]
         sticker_meanings = [x.strip() for x in data.get("stickerMeanings", []) if x.strip()]
         reference_images = [x for x in data.get("referenceImages", []) if x and Path(x).exists()]
+        reference_mode = normalize_reference_mode(data.get("referenceMode", "borrow"))
         with STATE.lock:
             if STATE.state in ("running", "syncing", "reconnecting", "searching"):
                 self.send_json({"ok": False, "error": "task is already running"}, 409)
@@ -2055,7 +2092,7 @@ class Handler(BaseHTTPRequestHandler):
             STATE.state = "searching"
             STATE.current = "联网参考热门"
             STATE.hot_theme = None
-            STATE.worker = Thread(target=run_search_theme, args=(keyword, sticker_meanings, reference_images), daemon=True)
+            STATE.worker = Thread(target=run_search_theme, args=(keyword, sticker_meanings, reference_images, reference_mode), daemon=True)
             STATE.worker.start()
         self.send_json({"ok": True})
 
