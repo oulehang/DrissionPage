@@ -113,3 +113,16 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Local IDE and automation state
+.idea/
+.superpowers/
+
+# Local runtime/browser state
+chatgpt_profile/
+chatgpt_images/
+*.log
+
+# Generated job data
+boss_java_applied_jobs.csv
+boss_java_processed_jobs*.txt
