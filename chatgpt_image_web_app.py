@@ -1542,7 +1542,7 @@ def run_batch(theme, templates, mode="sprite24", sticker_prompt="", supplied_mea
             STATE.append_log(f"已加载参考图 {len(reference_images)} 张，将用于分析画风、主体和文案风格。")
         sleep(2)
 
-        copy_answer = bot.ask(build_copy_prompt(theme_for_prompt, prompt_style), reference_images=reference_images)
+        copy_answer = bot.ask(build_copy_prompt(theme_for_prompt, prompt_style), reference_images=reference_images, progress_callback=lambda message: STATE.append_log(f"生成提交文案：{message}"))
         metadata_source = extract_json(copy_answer)
         if supplied_meanings or theme_meanings:
             metadata_source["sticker_meanings"] = supplied_meanings or theme_meanings
@@ -1575,6 +1575,8 @@ def run_batch(theme, templates, mode="sprite24", sticker_prompt="", supplied_mea
 
             answer = bot.ask(prompt, expect_images=True, progress_callback=image_progress)
             new_paths = list(bot.last_saved_images)
+            if not new_paths:
+                raise RuntimeError(f"{label}未获取到新图片。请检查 ChatGPT 页面是否提示额度、登录或生成失败后重试。")
 
             if mode == "sprite24" and index == 1:
                 if not new_paths:

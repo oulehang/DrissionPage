@@ -1,6 +1,7 @@
 import unittest
 
-from chatgpt_web_cli import ChatGPTWebClient
+from chatgpt_web_cli import ChatGPTWebClient, ANSWER_SELECTORS
+from unittest.mock import Mock, patch
 
 
 class FakeElement:
@@ -108,6 +109,31 @@ class ChatGPTWebClientReferenceImageTests(unittest.TestCase):
         )
 
         self.assertIn("新主题", answer)
+
+
+class CurrentChatGPTLayoutTests(unittest.TestCase):
+    def test_prompt_lookup_rejects_css_search_false_positive(self):
+        bot = ChatGPTWebClient.__new__(ChatGPTWebClient)
+        bot.timeout = 1
+        wrong, editor = object(), object()
+        bot.page = Mock()
+        bot.page.ele.side_effect = [wrong, editor]
+        bot.page.run_js.side_effect = [False, True]
+        self.assertIs(bot._wait_prompt_box(), editor)
+
+    def test_current_assistant_marker_is_supported(self):
+        bot = ChatGPTWebClient.__new__(ChatGPTWebClient)
+        bot.page = Mock()
+        answer = FakeElement('{"name":"汪汪晨安局"}')
+        bot.page.eles.side_effect = lambda selector, **kwargs: [answer] if selector == ANSWER_SELECTORS[0] else []
+        self.assertEqual(bot._assistant_elements(), [answer])
+        self.assertIn('data-chatgpt-search-unit-key', ANSWER_SELECTORS[0])
+
+    def test_copy_request_does_not_download_previous_images(self):
+        bot = FakeChatGPTWebClient()
+        bot.ask("生成文案")
+        self.assertNotIn("save_latest_images", bot.calls)
+        self.assertEqual(bot.last_saved_images, [])
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ CHATGPT_URL = "https://chatgpt.com/"
 
 
 PROMPT_SELECTORS = (
+    "css:div[role='textbox'][contenteditable='true']",
     "css:textarea[data-testid='prompt-textarea']",
     "css:#prompt-textarea",
     "css:textarea",
@@ -37,6 +38,7 @@ SEND_BUTTON_SELECTORS = (
 )
 
 ANSWER_SELECTORS = (
+    'css:[data-chatgpt-search-unit-key$=":assistant"]',
     "css:[data-message-author-role='assistant']",
     "css:div.markdown",
 )
@@ -45,6 +47,7 @@ BUSY_SELECTORS = (
     "css:button[data-testid='stop-button']",
     "css:button[aria-label='Stop streaming']",
     "css:button[aria-label='Stop generating']",
+    "css:button[aria-label='停止']",
 )
 
 IMAGE_GENERATION_BUSY_TEXTS = (
@@ -71,6 +74,10 @@ class ChatGPTWebClient:
             opts.set_user_data_path(user_data_path)
             opts.set_timeouts(base=10, page_load=60, script=30)
             self.page = ChromiumPage(opts)
+        # Keep automation separate from the user's active conversation.
+        self.page = self.page.new_tab()
+        self.page.set.load_mode.none()
+        self.page.set.timeouts(base=2, page_load=30, script=15)
         self.timeout = timeout
         self.image_dir = Path(image_dir)
         self.saved_images = []
@@ -83,6 +90,8 @@ class ChatGPTWebClient:
         input("After the chat input box is visible, press Enter here to continue...")
 
     def ask(self, prompt, expect_images=False, progress_callback=None, reference_images=None):
+        if progress_callback:
+            progress_callback("正在检查输入框和会话状态")
         before_count = self._assistant_count()
         before_answer_texts = set(self._assistant_texts())
         before_image_keys = self._current_image_keys()
@@ -92,6 +101,8 @@ class ChatGPTWebClient:
             attached_count = self._attach_files(reference_images)
             self._wait_attachments_ready(attached_count, require_send_ready=False)
         box = self._wait_prompt_box()
+        if progress_callback:
+            progress_callback("正在填写提示词")
         self._fill_prompt(box, prompt)
         sent_already = False
         if reference_images:
@@ -103,6 +114,8 @@ class ChatGPTWebClient:
                     raise
         if not sent_already:
             self._click_send()
+        if progress_callback:
+            progress_callback("提示词已发送，等待 ChatGPT 回复")
         answer = self._wait_answer(
             before_count,
             before_image_keys,
@@ -113,7 +126,7 @@ class ChatGPTWebClient:
         if expect_images:
             self.last_saved_images = self.save_answer_images(before_count, before_image_keys)
         else:
-            self.last_saved_images = self.save_latest_images()
+            self.last_saved_images = []
         return answer
 
     def _wait_prompt_box(self):
@@ -121,7 +134,7 @@ class ChatGPTWebClient:
         while perf_counter() < end:
             for selector in PROMPT_SELECTORS:
                 ele = self.page.ele(selector, timeout=0.2)
-                if ele:
+                if ele and self.page.run_js('return arguments[0].matches("textarea, [contenteditable=true][role=textbox]") && arguments[0].getClientRects().length > 0', ele):
                     return ele
             sleep(0.2)
         raise TimeoutError("Could not find the ChatGPT prompt input box.")
@@ -271,7 +284,7 @@ class ChatGPTWebClient:
             sleep(0.2)
 
         # Keyboard fallback: focused prompt box + Enter.
-        self.page.actions.key_down("ENTER")
+        self.page.actions.type("\n")
 
     def _send_button(self):
         for selector in SEND_BUTTON_SELECTORS:
@@ -294,7 +307,7 @@ class ChatGPTWebClient:
     def _wait_answer(self, before_count, before_image_keys=None, before_answer_texts=None, expect_images=False, progress_callback=None):
         before_image_keys = before_image_keys or set()
         before_answer_texts = before_answer_texts or set()
-        end = perf_counter() + self.timeout
+        end = perf_counter() + (max(600, self.timeout) if expect_images else self.timeout)
         last_text = ""
         stable_hits = 0
         last_image_keys = set()
@@ -336,6 +349,10 @@ class ChatGPTWebClient:
                 ):
                     return "[image answer ready]"
 
+            if not expect_images and progress_callback and perf_counter() - last_progress_at >= 10:
+                last_progress_at = perf_counter()
+                progress_callback("ChatGPT 正在思考或生成文案，请稍候")
+
             if expect_images and progress_callback and perf_counter() - last_progress_at >= 5:
                 last_progress_at = perf_counter()
                 try:
@@ -368,9 +385,7 @@ class ChatGPTWebClient:
 
         if last_text:
             return last_text
-        saved = self.save_latest_images()
-        if saved:
-            return f"[image answer saved: {len(saved)} file(s)]"
+        # Do not treat an earlier turn's images as this request's result.
         raise TimeoutError("Timed out waiting for ChatGPT answer.")
 
     def _image_wait_status(self, before_image_keys, before_count, use_page_images, stable_hits, visual_signatures):
